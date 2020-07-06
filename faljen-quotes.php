@@ -1,31 +1,45 @@
 <?php
 /**
  * Plugin name: Faljen Random Quotes
- * Description: A simple plugin to display random quotes from eminent people! Something amazing!
- * Version: 0.1.0
+ * Description: A simple plugin to display random quotes said by eminent people! Something amazing!
+ * Version: 0.3.0
  * Requires at least: 5.0
  * Requires PHP: 7.0
  * Author: Faljen
  * License: GPL v2 or later
  */
 
-function faljen_quotes_activation()
+//GET TABLE NAME
+function faljen_quotes_get_table_name()
 {
-    add_option('faljen_quotes_last_id', null);
+    global $wpdb;
+    return $wpdb->prefix . 'faljen_quotes';
+
 }
 
-
-function faljen_quotes_deactivation()
+//CREATE DATABASE
+function faljen_quotes_db_table_create()
 {
-    update_option('faljen_quotes_last_id', null);
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    global $wpdb;
+    $tableName = faljen_quotes_get_table_name();
+
+    $charset = $wpdb->get_charset_collate();
+
+    $query = "CREATE TABLE $tableName (
+            id mediumint(9) NOT NULL AUTO_INCREMENT, 
+            text text NOT NULL,
+            author varchar(45) NOT NULL,
+            PRIMARY KEY  (id)
+            ) $charset;";
+
+    dbDelta($query);
 }
 
-register_activation_hook(__FILE__, 'faljen_quotes_activation');
-
-register_deactivation_hook(__FILE__, 'faljen_quotes_deactivation');
-
-function faljen_get_quote()
+//IMPORT CONTENT TO DATABASE
+function faljen_quotes_db_import()
 {
+    global $wpdb;
     $quotes = [
         [
             'text' => 'Zawsze jestem gotów się uczyć, chociaż nie zawsze chcę, żeby mnie uczono.',
@@ -45,25 +59,63 @@ function faljen_get_quote()
         ]
     ];
 
+    $tableName = faljen_quotes_get_table_name();
+    foreach ($quotes as $quote) {
+        $wpdb->insert($tableName, [
+            'text' => wptexturize($quote['text']),
+            'author' => wptexturize($quote['author'])
+        ]);
+    }
+}
+
+// WHEN PLUGIN STARTS
+function faljen_quotes_activation()
+{
+    faljen_quotes_db_table_create();
+    faljen_quotes_db_import();
+    add_option('faljen_quotes_last_id', null);
+}
+
+// WHEN PLUGIN TURN OFF
+function faljen_quotes_deactivation()
+{
+    global $wpdb;
+    $tableName = faljen_quotes_get_table_name();
+    $wpdb->query("TRUNCATE TABLE $tableName");
+    update_option('faljen_quotes_last_id', null);
+}
+
+register_activation_hook(__FILE__, 'faljen_quotes_activation');
+register_deactivation_hook(__FILE__, 'faljen_quotes_deactivation');
+
+
+// GET QUOTE TO DISPLAY ON THE PAGE
+function faljen_get_quote()
+{
+    global $wpdb;
+    $tableName = faljen_quotes_get_table_name();
+    $quotesCount = $wpdb->get_var("SELECT COUNT(*) FROM $tableName");
+
     $lastQuoteId = get_option('faljen_quotes_last_id');
 
     while (true) {
-        $id = rand(0, count($quotes) - 1);
+        $id = rand(1, (int)$quotesCount);
         if ($id != $lastQuoteId) {
             break;
         }
     }
 
-    $quote = $quotes[$id];
+    $quote = $wpdb->get_row("SELECT * FROM $tableName WHERE id=$id");
 
     update_option('faljen_quotes_last_id', $id);
 
     return [
-        'text' => wptexturize($quote['text']),
-        'author' => wptexturize($quote['author'])
+        'text' => wptexturize($quote->text),
+        'author' => wptexturize($quote->author)
     ];
 }
 
+// ADD QUOTE TO THE PAGE
 function faljen_content_add_quote($content)
 {
     $quote = faljen_get_quote();
@@ -78,6 +130,7 @@ function faljen_content_add_quote($content)
 
 add_filter('the_content', 'faljen_content_add_quote');
 
+// STYLES
 function faljen_quotes_style_css()
 {
     echo '
