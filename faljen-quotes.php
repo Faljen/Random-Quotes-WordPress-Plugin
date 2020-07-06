@@ -14,6 +14,7 @@ function faljen_quotes_activation()
     add_option('faljen_quotes_last_id', null);
 }
 
+
 function faljen_quotes_deactivation()
 {
     update_option('faljen_quotes_last_id', null);
