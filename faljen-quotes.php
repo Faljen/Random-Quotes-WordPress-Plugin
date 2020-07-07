@@ -34,6 +34,7 @@ function faljen_quotes_db_table_create()
             ) $charset;";
 
     dbDelta($query);
+
 }
 
 //IMPORT CONTENT TO DATABASE
