@@ -164,7 +164,10 @@ add_action('wp_head', 'faljen_quotes_style_css');
 
 function faljen_quotes_shortcode($attrs, $content)
 {
-    var_dump($attrs);
+    $attrs = shortcode_atts(
+        ['count' => 1],
+        $attrs
+    );
     return $content . 'To jest shortcode xDD';
 }
 
